@@ -1,0 +1,54 @@
+{
+  "weapons": [
+    {
+      "id": "fists",
+      "name": "Fists",
+      "char": "",
+      "color": [255, 255, 255],
+      "damage": 2,
+      "description": "Your bare hands. Better than nothing."
+    },
+    {
+      "id": "baseball_bat",
+      "name": "Baseball Bat",
+      "char": "/",
+      "color": [180, 130, 80],
+      "damage": 5,
+      "description": "A wooden baseball bat. Great for home runs and zombie skulls."
+    },
+    {
+      "id": "kitchen_knife",
+      "name": "Kitchen Knife",
+      "char": "/",
+      "color": [200, 200, 200],
+      "damage": 4,
+      "description": "A sharp kitchen knife. Good for cooking and self-defense."
+    },
+    {
+      "id": "crowbar",
+      "name": "Crowbar",
+      "char": "/",
+      "color": [100, 100, 120],
+      "damage": 6,
+      "description": "A sturdy crowbar. Useful for prying and smashing."
+    },
+    {
+      "id": "fire_axe",
+      "name": "Fire Axe",
+      "char": "/",
+      "color": [200, 50, 50],
+      "damage": 8,
+      "description": "A firefighter's axe. Heavy and deadly."
+    },
+    {
+      "id": "pistol",
+      "name": "Pistol",
+      "char": ")",
+      "color": [150, 150, 150],
+      "damage": 10,
+      "ranged": true,
+      "ammo_type": "9mm",
+      "description": "A 9mm handgun. Loud but effective."
+    }
+  ]
+}

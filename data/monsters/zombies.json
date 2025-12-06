@@ -1,0 +1,84 @@
+{
+  "zombies": [
+    {
+      "id": "zombie",
+      "name": "Zombie",
+      "char": "Z",
+      "color": [100, 200, 100],
+      "hp": 10,
+      "attack": 3,
+      "defense": 0,
+      "speed": 100,
+      "description": "A shambling corpse. Slow but relentless."
+    },
+    {
+      "id": "zombie_fast",
+      "name": "Fast Zombie",
+      "char": "Z",
+      "color": [150, 255, 150],
+      "hp": 8,
+      "attack": 4,
+      "defense": 0,
+      "speed": 150,
+      "description": "A freshly turned zombie. Still has some speed."
+    },
+    {
+      "id": "zombie_brute",
+      "name": "Zombie Brute",
+      "char": "Z",
+      "color": [80, 150, 80],
+      "hp": 25,
+      "attack": 6,
+      "defense": 2,
+      "speed": 80,
+      "description": "A massive zombie. Slow but hits like a truck."
+    },
+    {
+      "id": "zombie_crawler",
+      "name": "Crawler",
+      "char": "z",
+      "color": [120, 180, 120],
+      "hp": 5,
+      "attack": 2,
+      "defense": 0,
+      "speed": 60,
+      "description": "A zombie missing its legs. Slow but easy to miss."
+    },
+    {
+      "id": "zombie_spitter",
+      "name": "Spitter",
+      "char": "Z",
+      "color": [150, 200, 50],
+      "hp": 8,
+      "attack": 2,
+      "defense": 0,
+      "speed": 90,
+      "ranged_attack": 4,
+      "description": "A bloated zombie that spits acid."
+    }
+  ],
+  "animals": [
+    {
+      "id": "feral_dog",
+      "name": "Feral Dog",
+      "char": "d",
+      "color": [180, 150, 100],
+      "hp": 8,
+      "attack": 4,
+      "defense": 0,
+      "speed": 130,
+      "description": "An abandoned dog gone wild. Fast and vicious."
+    },
+    {
+      "id": "rat",
+      "name": "Giant Rat",
+      "char": "r",
+      "color": [150, 130, 100],
+      "hp": 3,
+      "attack": 1,
+      "defense": 0,
+      "speed": 110,
+      "description": "A disease-carrying vermin grown large."
+    }
+  ]
+}

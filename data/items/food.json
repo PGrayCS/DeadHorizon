@@ -1,0 +1,62 @@
+{
+  "food": [
+    {
+      "id": "canned_beans",
+      "name": "Canned Beans",
+      "char": "%",
+      "color": [180, 100, 50],
+      "nutrition": 30,
+      "description": "A can of beans. Nutritious and long-lasting."
+    },
+    {
+      "id": "canned_soup",
+      "name": "Canned Soup",
+      "char": "%",
+      "color": [200, 80, 80],
+      "nutrition": 25,
+      "description": "Canned tomato soup. Better when heated."
+    },
+    {
+      "id": "granola_bar",
+      "name": "Granola Bar",
+      "char": "%",
+      "color": [200, 180, 100],
+      "nutrition": 15,
+      "description": "A healthy snack bar. Quick energy."
+    },
+    {
+      "id": "mre",
+      "name": "MRE",
+      "char": "%",
+      "color": [100, 120, 80],
+      "nutrition": 50,
+      "description": "Meal Ready to Eat. Military rations that last forever."
+    },
+    {
+      "id": "water_bottle",
+      "name": "Water Bottle",
+      "char": "!",
+      "color": [100, 150, 255],
+      "hydration": 30,
+      "description": "A bottle of clean water."
+    },
+    {
+      "id": "soda",
+      "name": "Soda",
+      "char": "!",
+      "color": [200, 50, 50],
+      "hydration": 20,
+      "nutrition": 5,
+      "description": "A can of cola. Refreshing but sugary."
+    },
+    {
+      "id": "rotten_meat",
+      "name": "Rotten Meat",
+      "char": "%",
+      "color": [100, 80, 60],
+      "nutrition": 10,
+      "poison": 20,
+      "description": "Spoiled meat. Eating this is a bad idea."
+    }
+  ]
+}

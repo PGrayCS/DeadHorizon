@@ -1,0 +1,67 @@
+{
+  "tiles": [
+    {
+      "id": "floor",
+      "name": "Floor",
+      "char": ".",
+      "walkable": true,
+      "transparent": true,
+      "color_light": [150, 150, 150],
+      "color_dark": [50, 50, 50]
+    },
+    {
+      "id": "wall",
+      "name": "Wall",
+      "char": "#",
+      "walkable": false,
+      "transparent": false,
+      "color_light": [130, 110, 90],
+      "color_dark": [50, 50, 80]
+    },
+    {
+      "id": "grass",
+      "name": "Grass",
+      "char": "\"",
+      "walkable": true,
+      "transparent": true,
+      "color_light": [50, 120, 50],
+      "color_dark": [20, 40, 20]
+    },
+    {
+      "id": "road",
+      "name": "Road",
+      "char": ".",
+      "walkable": true,
+      "transparent": true,
+      "color_light": [100, 100, 100],
+      "color_dark": [40, 40, 40]
+    },
+    {
+      "id": "water",
+      "name": "Water",
+      "char": "~",
+      "walkable": false,
+      "transparent": true,
+      "color_light": [50, 80, 200],
+      "color_dark": [20, 30, 80]
+    },
+    {
+      "id": "door_closed",
+      "name": "Closed Door",
+      "char": "+",
+      "walkable": false,
+      "transparent": false,
+      "color_light": [180, 130, 80],
+      "color_dark": [80, 50, 30]
+    },
+    {
+      "id": "door_open",
+      "name": "Open Door",
+      "char": "/",
+      "walkable": true,
+      "transparent": true,
+      "color_light": [150, 110, 70],
+      "color_dark": [60, 40, 20]
+    }
+  ]
+}
