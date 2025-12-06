@@ -1,4 +1,4 @@
-# Dead Horizon 🧟
+﻿# Dead Horizon 
 
 A zombie apocalypse survival roguelike built with Python and tcod.
 
@@ -6,15 +6,19 @@ A zombie apocalypse survival roguelike built with Python and tcod.
 
 Dead Horizon is a turn-based survival roguelike set in a post-apocalyptic world overrun by zombies. Scavenge for supplies, craft weapons, and fight to survive another day.
 
-## Features (Planned)
+## Features
 
-- 🗺️ Procedurally generated maps
-- 🧟 Various zombie types with different behaviors
-- ⚔️ Turn-based combat system
-- 🎒 Inventory and crafting
-- 🍖 Survival mechanics (hunger, thirst, health)
-- 💾 Save/Load system
-- 🎨 DawnLike 16x16 tileset graphics
+-  Procedurally generated dungeon maps
+-  5 zombie types with unique sprites and behaviors
+-  Turn-based combat with damage flash and blood effects
+-  DawnLike 16x16 tileset graphics (included!)
+-  Field of view with explored area memory
+
+### Coming Soon
+-  Inventory and crafting
+-  Survival mechanics (hunger, thirst)
+-  Save/Load system
+-  Doors and more terrain
 
 ## Installation
 
@@ -27,7 +31,7 @@ Dead Horizon is a turn-based survival roguelike set in a post-apocalyptic world 
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/DeadHorizon.git
+git clone https://github.com/PGrayCS/DeadHorizon.git
 cd DeadHorizon
 ```
 
@@ -40,57 +44,61 @@ venv\Scripts\activate  # Windows
 
 3. Install dependencies:
 ```bash
-pip install -r requirements.txt
+pip install tcod numpy pillow
 ```
 
-4. Download the DawnLike tileset:
-   - Go to: https://opengameart.org/content/dawnlike-16x16-universal-rogue-like-tileset-v181
-   - Download and extract to `assets/tilesets/DawnLike/`
-
-5. Run the game:
+4. Run the game:
 ```bash
 python main.py
 ```
 
+**That's it!** The DawnLike tileset is included in the repository.
+
 ## Controls
 
-- **Arrow Keys / WASD / Numpad**: Move
-- **G**: Pick up item
-- **I**: Open inventory
-- **ESC**: Menu / Quit
+- **Arrow Keys / WASD**: Move and attack
+- **Period (.)**: Wait a turn
+- **ESC**: Quit
+- **R**: Restart (after death)
+
+## Zombie Types
+
+| Type | HP | ATK | Special |
+|------|-----|-----|---------|
+| Zombie | 10 | 3 | Basic enemy |
+| Fast Zombie | 6 | 2 | Moves twice per turn! |
+| Zombie Brute | 20 | 5 | Tanky, high damage |
+| Crawler | 5 | 4 | Low HP, high damage |
+| Skeleton | 8 | 3 | Balanced stats |
 
 ## Project Structure
 
 ```
 DeadHorizon/
-├── main.py              # Entry point
-├── requirements.txt     # Python dependencies
-├── src/
-│   ├── engine/          # Core game engine
-│   ├── entities/        # Player, monsters, items
-│   ├── components/      # Entity components
-│   ├── systems/         # Game systems (combat, survival)
-│   ├── map/             # Map generation and tiles
-│   ├── ui/              # User interface
-│   └── data/            # Data loaders
-├── data/
-│   ├── items/           # Item definitions (JSON)
-│   ├── monsters/        # Monster definitions (JSON)
-│   └── terrain/         # Terrain definitions (JSON)
-├── assets/
-│   └── tilesets/        # Graphics (DawnLike)
-├── saves/               # Save files
-└── tests/               # Unit tests
+ main.py              # Entry point
+ src/
+    engine/          # Core game engine
+    entities/        # Player, monsters
+    systems/         # Combat system
+    map/             # Map generation and tiles
+    graphics/        # Tileset and effects
+ assets/
+    tilesets/
+        dawnlike/    # DawnLike tileset (included)
+ data/                # JSON data files
 ```
 
 ## Art Credits
 
-- **Tileset**: DawnLike by DragonDePlatino (CC-BY 4.0)
-  - https://opengameart.org/content/dawnlike-16x16-universal-rogue-like-tileset-v181
+- **Tileset**: [DawnLike](https://opengameart.org/content/dawnlike-16x16-universal-rogue-like-tileset-v181) by DragonDePlatino (CC-BY 4.0)
+
+## Inspired By
+
+- [Cataclysm: Dark Days Ahead](https://github.com/CleverRaven/Cataclysm-DDA) - The ultimate zombie survival roguelike
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License.
 
 ## Contributing
 
