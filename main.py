@@ -10,6 +10,7 @@ import tcod.console
 import tcod.event
 
 from src.engine.game import Game
+from src.graphics.tileset_manager import TilesetManager
 
 
 def main() -> None:
@@ -23,12 +24,9 @@ def main() -> None:
     map_width = 80
     map_height = 43
     
-    # Use a truetype font - Consolas or similar monospace font
-    tileset = tcod.tileset.load_truetype_font(
-        "C:/Windows/Fonts/consola.ttf",  # Consolas font (comes with Windows)
-        tile_width=10,
-        tile_height=16,
-    )
+    # Initialize tileset manager
+    tileset_manager = TilesetManager()
+    tileset = tileset_manager.load_tileset()
     
     # Create the game instance
     game = Game(
@@ -36,6 +34,7 @@ def main() -> None:
         screen_height=screen_height,
         map_width=map_width,
         map_height=map_height,
+        tileset_manager=tileset_manager,
     )
     
     # Create the main window

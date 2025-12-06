@@ -13,12 +13,12 @@ if TYPE_CHECKING:
 
 class Combat:
     """Combat calculation utilities."""
-    
+
     @staticmethod
     def calculate_damage(attacker: Entity, defender: Entity) -> int:
         """
         Calculate damage dealt from attacker to defender.
-        
+
         Formula: damage = attacker.attack - defender.defense + random(-2, 2)
         Minimum damage is 0.
         """
@@ -26,12 +26,12 @@ class Combat:
         variance = random.randint(-2, 2)
         damage = max(0, base_damage + variance)
         return damage
-    
+
     @staticmethod
     def attack(attacker: Entity, defender: Entity) -> tuple[int, bool]:
         """
         Perform an attack.
-        
+
         Returns:
             Tuple of (damage_dealt, defender_killed)
         """

@@ -10,11 +10,12 @@ from src.entities.entity import Entity
 
 if TYPE_CHECKING:
     from src.engine.game import Game
+    from src.graphics.tileset_manager import TilesetManager
 
 
 class Monster(Entity):
     """A hostile creature."""
-    
+
     def __init__(
         self,
         x: int,
@@ -25,7 +26,14 @@ class Monster(Entity):
         hp: int = 10,
         attack: int = 3,
         defense: int = 0,
+        tileset_manager: TilesetManager | None = None,
+        tile_name: str | None = None,
     ) -> None:
+        # Get tile ID from tileset manager if available
+        tile_id = None
+        if tileset_manager and tile_name:
+            tile_id = tileset_manager.get_monster_tile(tile_name)
+        
         super().__init__(
             x=x,
             y=y,
@@ -34,52 +42,53 @@ class Monster(Entity):
             name=name,
             blocks=True,
             render_order=Entity.RENDER_ORDER_ACTOR,
+            tile_id=tile_id,
         )
-        
+
         self.hp = hp
         self.max_hp = hp
         self.attack = attack
         self.defense = defense
-    
+
     def take_turn(self, game: Game) -> None:
         """Take a turn - basic AI."""
         # Only act if visible to player
         if not game.game_map.visible[self.x, self.y]:
             return
-        
+
         # Get direction towards player
         dx = game.player.x - self.x
         dy = game.player.y - self.y
         distance = max(abs(dx), abs(dy))
-        
+
         if distance <= 1:
             # Adjacent to player - attack!
             self._attack_player(game)
         elif distance <= 8:
             # Chase player
             self._move_towards_player(game, dx, dy)
-    
+
     def _attack_player(self, game: Game) -> None:
         """Attack the player."""
         from src.systems.combat import Combat
-        
+
         damage = Combat.calculate_damage(self, game.player)
         game.player.hp -= damage
-        
+
         if damage > 0:
             game.add_message(f"The {self.name} attacks you for {damage} damage!", (255, 100, 100))
         else:
             game.add_message(f"The {self.name} attacks you but does no damage.", (200, 200, 200))
-    
+
     def _move_towards_player(self, game: Game, dx: int, dy: int) -> None:
         """Move one step towards the player."""
         # Normalize to -1, 0, or 1
         step_x = 0 if dx == 0 else (1 if dx > 0 else -1)
         step_y = 0 if dy == 0 else (1 if dy > 0 else -1)
-        
+
         dest_x = self.x + step_x
         dest_y = self.y + step_y
-        
+
         # Check if destination is walkable and not blocked by entity
         if game.game_map.walkable[dest_x, dest_y]:
             blocking = game._get_blocking_entity_at(dest_x, dest_y)
