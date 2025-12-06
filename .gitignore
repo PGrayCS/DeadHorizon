@@ -5,9 +5,9 @@ __pycache__/
 *.so
 .Python
 venv/
-ENV/
 env/
 .venv/
+ENV/
 
 # IDE
 .vscode/
@@ -15,18 +15,15 @@ env/
 *.swp
 *.swo
 
-# Game
-saves/*.json
-saves/*.sav
-
-# Assets (downloaded separately)
-assets/tilesets/DawnLike/
-
 # OS
 .DS_Store
 Thumbs.db
 
-# Distribution
+# Build
 dist/
 build/
 *.egg-info/
+
+# Game specific
+saves/
+*.sav

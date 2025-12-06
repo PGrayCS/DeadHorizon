@@ -4,6 +4,7 @@ Game engine - Main game class that orchestrates everything
 
 from __future__ import annotations
 
+import random
 from typing import TYPE_CHECKING
 
 import tcod.console
@@ -11,11 +12,12 @@ import tcod.event
 
 from src.entities.entity import Entity
 from src.entities.player import Player
-from src.entities.monster import Monster
+from src.entities.monster import Monster, ZombieType
 from src.map.game_map import GameMap
 from src.map.procgen import generate_dungeon
 from src.engine.input_handler import handle_keys
 from src.systems.combat import Combat
+from src.graphics.effects import EffectsManager
 
 if TYPE_CHECKING:
     from src.graphics.tileset_manager import TilesetManager
@@ -41,6 +43,9 @@ class Game:
         # UI dimensions
         self.ui_height = screen_height - map_height
 
+        # Visual effects manager
+        self.effects = EffectsManager()
+
         # Entity list
         self.entities: list[Entity] = []
 
@@ -57,13 +62,13 @@ class Game:
         self.player = Player(x=player_x, y=player_y, tileset_manager=tileset_manager)
         self.entities.append(self.player)
 
-        # Spawn some zombies
+        # Spawn zombies with variety
         self._spawn_zombies()
 
         # Message log
         self.messages: list[tuple[str, tuple[int, int, int]]] = []
         self.add_message("Welcome to Dead Horizon. Survive the apocalypse!", (255, 255, 100))
-        self.add_message("Use WASD/arrows to move. Press G to toggle graphics.", (200, 200, 200))
+        self.add_message("Use WASD or arrow keys to move. ESC to quit.", (200, 200, 200))
 
         # Game state
         self.game_over = False
@@ -71,11 +76,22 @@ class Game:
         # Initialize FOV
         self.recompute_fov()
 
-    def _spawn_zombies(self, count: int = 10) -> None:
-        """Spawn zombies in random room positions."""
-        import random
-
+    def _spawn_zombies(self, count: int = 12) -> None:
+        """Spawn a variety of zombie types in random room positions."""
         rooms = getattr(self.game_map, 'rooms', [])
+
+        # Spawn distribution: more basic zombies, fewer special types
+        # Weights for each type (zombie, fast, brute, crawler, skeleton)
+        zombie_weights = [
+            (ZombieType.ZOMBIE, 40),    # 40% - Basic zombies
+            (ZombieType.FAST, 20),      # 20% - Fast zombies
+            (ZombieType.CRAWLER, 15),   # 15% - Crawlers
+            (ZombieType.SKELETON, 15),  # 15% - Skeletons
+            (ZombieType.BRUTE, 10),     # 10% - Brutes (rare, dangerous)
+        ]
+        
+        types = [t for t, _ in zombie_weights]
+        weights = [w for _, w in zombie_weights]
 
         for _ in range(count):
             if rooms:
@@ -90,14 +106,14 @@ class Game:
             if (x, y) != (self.player.x, self.player.y) and self.game_map.walkable[x, y]:
                 # Don't spawn on other entities
                 if not any(e.x == x and e.y == y for e in self.entities):
-                    zombie = Monster(
-                        x=x, y=y, 
-                        name="Zombie", 
-                        char="Z", 
-                        color=(100, 200, 100), 
-                        hp=10, attack=3, defense=1,
+                    # Pick a random zombie type based on weights
+                    zombie_type = random.choices(types, weights=weights, k=1)[0]
+                    
+                    zombie = Monster.spawn_zombie(
+                        x=x,
+                        y=y,
+                        zombie_type=zombie_type,
                         tileset_manager=self.tileset_manager,
-                        tile_name="zombie"
                     )
                     self.entities.append(zombie)
 
@@ -129,14 +145,6 @@ class Game:
                     )
             return None
 
-        # Handle graphics toggle
-        if isinstance(event, tcod.event.KeyDown):
-            if event.sym == tcod.event.KeySym.g:
-                if self.tileset_manager:
-                    mode = self.tileset_manager.toggle_mode()
-                    self.add_message(f"Graphics mode: {mode.name}", (100, 200, 255))
-                return None
-
         action = handle_keys(event)
 
         if action is None:
@@ -148,6 +156,7 @@ class Game:
         if action == "wait":
             # Player waits, enemies take turn
             self._process_enemy_turns()
+            self.effects.tick()
             return None
 
         if isinstance(action, tuple) and action[0] == "move":
@@ -161,6 +170,11 @@ class Game:
         dest_x = self.player.x + dx
         dest_y = self.player.y + dy
 
+        # Clear flash states from previous turn
+        self.player.is_flashing = False
+        for entity in self.entities:
+            entity.is_flashing = False
+
         # Check for collision with entities (attack)
         target = self._get_blocking_entity_at(dest_x, dest_y)
         if target:
@@ -168,17 +182,26 @@ class Game:
             damage = Combat.calculate_damage(self.player, target)
             target.hp -= damage
 
+            # === DAMAGE FLASH ===
+            target.is_flashing = True
+            self.effects.add_damage_flash(target.x, target.y)
+
             if damage > 0:
                 self.add_message(f"You hit the {target.name} for {damage} damage!", (255, 200, 100))
+                # === BLOOD SPLATTER ===
+                self.effects.add_blood(target.x, target.y, amount=min(damage // 2 + 1, 3))
             else:
                 self.add_message(f"You hit the {target.name} but do no damage.", (200, 200, 200))
 
             if target.hp <= 0:
                 self.add_message(f"The {target.name} is dead!", (255, 100, 100))
+                # === DEATH BLOOD ===
+                self.effects.add_death_blood(target.x, target.y)
                 self.entities.remove(target)
 
             # Enemy turn
             self._process_enemy_turns()
+            self.effects.tick()
             return None
 
         # Check for collision with walls
@@ -194,6 +217,7 @@ class Game:
 
         # Enemy turn
         self._process_enemy_turns()
+        self.effects.tick()
 
         return None
 
@@ -217,16 +241,25 @@ class Game:
 
     def render(self, console: tcod.console.Console) -> None:
         """Render the game to the console."""
-        # Render the map
+        # Render the map (always uses tiles mode now)
         self.game_map.render(console, self.tileset_manager)
+
+        # Render blood splatter on floor (before entities)
+        for effect in self.effects.effects:
+            if hasattr(effect, 'permanent') and effect.permanent:
+                if self.game_map.visible[effect.x, effect.y]:
+                    if self.game_map.walkable[effect.x, effect.y]:
+                        console.print(effect.x, effect.y, effect.char, fg=effect.color)
 
         # Render entities (in order: items, monsters, player)
         entities_sorted = sorted(self.entities, key=lambda e: e.render_order)
         for entity in entities_sorted:
             if self.game_map.visible[entity.x, entity.y]:
-                # Get render character (tile or ASCII based on mode)
+                # Get render character (always tile mode)
                 render_char = entity.get_render_char(self.tileset_manager)
-                console.print(entity.x, entity.y, render_char, fg=entity.color)
+                # Use flash color if flashing, otherwise normal color
+                render_color = entity.get_render_color()
+                console.print(entity.x, entity.y, render_char, fg=render_color)
 
         # Render UI panel
         self._render_ui(console)
@@ -251,12 +284,7 @@ class Game:
 
         # Draw zombie count
         zombie_count = len([e for e in self.entities if isinstance(e, Monster)])
-        console.print(25, ui_y + 1, f"Zombies: {zombie_count}", fg=(100, 200, 100))
-
-        # Draw graphics mode
-        if self.tileset_manager:
-            mode_text = f"[G] Mode: {self.tileset_manager.mode.name}"
-            console.print(45, ui_y + 1, mode_text, fg=(100, 150, 255))
+        console.print(25, ui_y + 1, f"Enemies: {zombie_count}", fg=(100, 200, 100))
 
         # Draw messages (last 4)
         msg_y = ui_y + 4

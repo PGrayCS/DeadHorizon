@@ -35,10 +35,12 @@ class Entity:
         self.y = y
         self.char = char
         self.color = color
+        self.base_color = color  # Store original color for flash recovery
         self.name = name
         self.blocks = blocks
         self.render_order = render_order
         self.tile_id = tile_id  # PUA codepoint for tile graphics
+        self.is_flashing = False  # Damage flash state
 
     def move(self, dx: int, dy: int) -> None:
         """Move the entity by the given amount."""
@@ -51,10 +53,16 @@ class Entity:
         dy = other.y - self.y
         return (dx ** 2 + dy ** 2) ** 0.5
 
+    def get_render_color(self) -> tuple[int, int, int]:
+        """Get the current render color (with flash effect applied)."""
+        if self.is_flashing:
+            return (255, 60, 60)  # Bright red flash
+        return self.color
+
     def get_render_char(self, tileset_manager: TilesetManager | None = None) -> str:
         """
         Get the character to render for this entity.
-        
+
         If tileset_manager is provided and in TILES mode, returns the tile character.
         Otherwise returns the ASCII character.
         """

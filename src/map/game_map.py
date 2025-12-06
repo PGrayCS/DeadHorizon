@@ -67,39 +67,20 @@ class GameMap:
 
     def render(self, console: tcod.console.Console, tileset_manager: TilesetManager | None = None) -> None:
         """
-        Render the map to the console.
-
-        Shows:
-        - Visible tiles in full color
-        - Explored but not visible tiles in dark color
-        - Unexplored tiles as shroud
+        Render the map to the console using DawnLike tiles.
         """
-        # Check if we should render with tiles
-        if tileset_manager and tileset_manager.is_tiles_mode:
-            self._render_tiles(console, tileset_manager)
-        else:
-            self._render_ascii(console)
+        if tileset_manager is None:
+            return
 
-    def _render_ascii(self, console: tcod.console.Console) -> None:
-        """Render the map in ASCII mode."""
-        console.rgb[0:self.width, 0:self.height] = np.select(
-            condlist=[self.visible, self.explored],
-            choicelist=[self.tiles["light"], self.tiles["dark"]],
-            default=tile_types.SHROUD,
-        )
-
-    def _render_tiles(self, console: tcod.console.Console, tileset_manager: TilesetManager) -> None:
-        """Render the map using tileset graphics."""
         # Get tile codepoints
         floor_tile = tileset_manager.get_terrain_tile("floor")
         wall_tile = tileset_manager.get_terrain_tile("wall")
-        
-        # Fall back to ASCII if tiles not loaded
+
         if floor_tile is None or wall_tile is None:
-            self._render_ascii(console)
+            print("ERROR: Terrain tiles not loaded!")
             return
-        
-        # Render each tile
+
+        # Render each tile with proper lighting
         for x in range(self.width):
             for y in range(self.height):
                 if not self.explored[x, y]:
