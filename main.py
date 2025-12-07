@@ -64,7 +64,7 @@ def main() -> None:
         title_screen = TitleScreen(screen_width, screen_height)
 
         # Title screen / menu loop
-        while title_screen.state not in (MenuState.PLAYING, MenuState.QUIT):
+        while title_screen.state not in (MenuState.PLAYING, MenuState.CONTINUE, MenuState.QUIT):
             root_console.clear()
             title_screen.render(root_console)
             context.present(root_console)
@@ -81,35 +81,52 @@ def main() -> None:
         if title_screen.state == MenuState.QUIT:
             raise SystemExit()
 
-        # === CHARACTER CREATION ===
-        char_creation = CharacterCreation(screen_width, screen_height)
+        # Check if continuing from save
+        if title_screen.state == MenuState.CONTINUE:
+            # Load saved game - skip character creation
+            from src.engine.save_system import load_game
 
-        while char_creation.state != CreationState.DONE:
-            root_console.clear()
-            char_creation.render(root_console)
-            context.present(root_console)
+            game = Game(
+                screen_width=screen_width,
+                screen_height=screen_height,
+                map_width=map_width,
+                map_height=map_height,
+                tileset_manager=tileset_manager,
+            )
+            if not load_game(game):
+                print("ERROR: Failed to load save file!")
+                raise SystemExit()
+            game.add_message("Welcome back!", (100, 255, 100))
+        else:
+            # === NEW GAME - CHARACTER CREATION ===
+            char_creation = CharacterCreation(screen_width, screen_height)
 
-            for event in tcod.event.wait():
-                context.convert_event(event)
+            while char_creation.state != CreationState.DONE:
+                root_console.clear()
+                char_creation.render(root_console)
+                context.present(root_console)
 
-                if isinstance(event, tcod.event.Quit):
-                    raise SystemExit()
+                for event in tcod.event.wait():
+                    context.convert_event(event)
 
-                char_creation.handle_event(event)
+                    if isinstance(event, tcod.event.Quit):
+                        raise SystemExit()
 
-        # Get the configured character
-        player_name, player_stats = char_creation.get_player_stats()
+                    char_creation.handle_event(event)
 
-        # Create the game instance with custom character
-        game = Game(
-            screen_width=screen_width,
-            screen_height=screen_height,
-            map_width=map_width,
-            map_height=map_height,
-            tileset_manager=tileset_manager,
-            player_name=player_name,
-            player_stats=player_stats,
-        )
+            # Get the configured character
+            player_name, player_stats = char_creation.get_player_stats()
+
+            # Create the game instance with custom character
+            game = Game(
+                screen_width=screen_width,
+                screen_height=screen_height,
+                map_width=map_width,
+                map_height=map_height,
+                tileset_manager=tileset_manager,
+                player_name=player_name,
+                player_stats=player_stats,
+            )
 
         # Main game loop
         while True:

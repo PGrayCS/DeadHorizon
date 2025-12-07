@@ -18,6 +18,7 @@ class MenuState(Enum):
     OPTIONS = auto()
     CREDITS = auto()
     PLAYING = auto()
+    CONTINUE = auto()  # Load existing save
     QUIT = auto()
 
 
@@ -81,10 +82,21 @@ class TitleScreen:
         self.selected_index = 0
         self.frame_count = 0
 
+        # Check if save exists
+        from src.engine.save_system import save_exists, get_save_info
+        has_save = save_exists()
+        save_info = get_save_info() if has_save else None
+
+        # Build continue text with save info
+        if save_info:
+            continue_text = f"CONTINUE (Lv.{save_info['level']} {save_info['player_name']})"
+        else:
+            continue_text = "CONTINUE"
+
         # Main menu items
         self.main_menu_items = [
             MenuItem("NEW GAME", MenuState.PLAYING),
-            MenuItem("CONTINUE", MenuState.PLAYING, enabled=False),
+            MenuItem(continue_text, MenuState.CONTINUE, enabled=has_save),
             MenuItem("OPTIONS", MenuState.OPTIONS),
             MenuItem("CREDITS", MenuState.CREDITS),
             MenuItem("QUIT", MenuState.QUIT),
