@@ -238,6 +238,12 @@ class Game:
         if action == "pickup":
             return self._handle_pickup()
 
+        if action == "save":
+            return self._handle_save()
+
+        if action == "load":
+            return self._handle_load()
+
         if isinstance(action, tuple) and action[0] == "move":
             dx, dy = action[1], action[2]
             return self._handle_move(dx, dy)
@@ -287,6 +293,23 @@ class Game:
             self.add_message("Inventory full!", (255, 100, 100))
 
         return None
+
+    def _handle_save(self) -> None:
+        """Handle saving the game."""
+        from src.engine.save_system import save_game
+        if save_game(self):
+            self.add_message("Game saved!", (100, 255, 100))
+        else:
+            self.add_message("Failed to save game!", (255, 100, 100))
+
+    def _handle_load(self) -> None:
+        """Handle loading the game."""
+        from src.engine.save_system import load_game
+        if load_game(self):
+            self.add_message("Game loaded!", (100, 255, 100))
+            self.recompute_fov()
+        else:
+            self.add_message("No save file found!", (255, 100, 100))
 
     def _handle_move(self, dx: int, dy: int) -> str | None:
         """Handle player movement or attack."""

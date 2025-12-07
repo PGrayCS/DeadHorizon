@@ -17,6 +17,8 @@ def handle_keys(event: tcod.event.Event) -> str | tuple | None:
         "wait": Wait a turn
         "inventory": Open inventory
         "pickup": Pick up item
+        "save": Save game (F5)
+        "load": Load game (F9)
         ("move", dx, dy): Move in direction
     """
     if not isinstance(event, tcod.event.KeyDown):
@@ -70,6 +72,14 @@ def handle_keys(event: tcod.event.Event) -> str | tuple | None:
     # Pickup
     if key == tcod.event.KeySym.g:
         return "pickup"
+
+    # Save game (F5)
+    if key == tcod.event.KeySym.F5:
+        return "save"
+
+    # Load game (F9)
+    if key == tcod.event.KeySym.F9:
+        return "load"
 
     # Quit
     if key == tcod.event.KeySym.ESCAPE:
