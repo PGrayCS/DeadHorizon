@@ -81,8 +81,8 @@ def handle_keys(event: tcod.event.Event) -> str | tuple | None:
     if key == tcod.event.KeySym.F9:
         return "load"
 
-    # Quit
+    # Pause menu (ESC)
     if key == tcod.event.KeySym.ESCAPE:
-        return "quit"
+        return "pause"
 
     return None

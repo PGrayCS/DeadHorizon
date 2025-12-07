@@ -29,6 +29,7 @@ class GameState:
     """Game state enum."""
     PLAYING = "playing"
     INVENTORY = "inventory"
+    PAUSED = "paused"
     GAME_OVER = "game_over"
 
 
@@ -101,6 +102,7 @@ class Game:
         # Game state
         self.state = GameState.PLAYING
         self.game_over = False
+        self.pause_selection = 0  # For pause menu
 
         # Inventory screen (created when opened)
         self.inventory_screen: InventoryScreen | None = None
@@ -199,6 +201,10 @@ class Game:
         if self.state == GameState.INVENTORY:
             return self._handle_inventory_event(event)
 
+        # Handle paused state
+        if self.state == GameState.PAUSED:
+            return self._handle_pause_event(event)
+
         # Handle game over state
         if self.game_over:
             if isinstance(event, tcod.event.KeyDown):
@@ -238,6 +244,11 @@ class Game:
         if action == "pickup":
             return self._handle_pickup()
 
+        if action == "pause":
+            self.state = GameState.PAUSED
+            self.pause_selection = 0  # 0=Resume, 1=Save, 2=Quit
+            return None
+
         if action == "save":
             return self._handle_save()
 
@@ -273,6 +284,32 @@ class Game:
                     self._add_ground_item(self.player.x, self.player.y, dropped_item)
                     self.add_message(f"Dropped {item_name}.", (200, 200, 100))
                     break
+
+        return None
+
+    def _handle_pause_event(self, event: tcod.event.Event) -> str | None:
+        """Handle events while pause menu is open."""
+        if not isinstance(event, tcod.event.KeyDown):
+            return None
+
+        key = event.sym
+
+        # Navigation
+        if key in (tcod.event.KeySym.UP, tcod.event.KeySym.w):
+            self.pause_selection = (self.pause_selection - 1) % 3
+        elif key in (tcod.event.KeySym.DOWN, tcod.event.KeySym.s):
+            self.pause_selection = (self.pause_selection + 1) % 3
+        elif key == tcod.event.KeySym.ESCAPE:
+            # ESC closes pause menu
+            self.state = GameState.PLAYING
+        elif key in (tcod.event.KeySym.RETURN, tcod.event.KeySym.KP_ENTER, tcod.event.KeySym.SPACE):
+            if self.pause_selection == 0:  # Resume
+                self.state = GameState.PLAYING
+            elif self.pause_selection == 1:  # Save & Continue
+                self._handle_save()
+                self.state = GameState.PLAYING
+            elif self.pause_selection == 2:  # Quit to Desktop
+                return "quit"
 
         return None
 
@@ -407,6 +444,11 @@ class Game:
             self.inventory_screen.render(console)
             return
 
+        # If paused, render pause menu overlay
+        if self.state == GameState.PAUSED:
+            self._render_pause_menu(console)
+            return
+
         self.game_map.render(console, self.tileset_manager)
 
         # Render blood effects
@@ -488,3 +530,50 @@ class Game:
                 fg=(255, 255, 255),
                 bg=(200, 0, 0)
             )
+
+    def _render_pause_menu(self, console: tcod.console.Console) -> None:
+        """Render the pause menu overlay."""
+        # Dark overlay
+        console.draw_rect(0, 0, self.screen_width, self.screen_height, ord(" "), bg=(10, 10, 15))
+
+        # Box dimensions
+        box_width = 30
+        box_height = 12
+        box_x = (self.screen_width - box_width) // 2
+        box_y = (self.screen_height - box_height) // 2
+
+        # Draw box background
+        console.draw_rect(box_x, box_y, box_width, box_height, ord(" "), bg=(20, 20, 30))
+
+        # Draw border
+        for x in range(box_x, box_x + box_width):
+            console.print(x, box_y, "-", fg=(80, 80, 100))
+            console.print(x, box_y + box_height - 1, "-", fg=(80, 80, 100))
+        for y in range(box_y, box_y + box_height):
+            console.print(box_x, y, "|", fg=(80, 80, 100))
+            console.print(box_x + box_width - 1, y, "|", fg=(80, 80, 100))
+        console.print(box_x, box_y, "+", fg=(80, 80, 100))
+        console.print(box_x + box_width - 1, box_y, "+", fg=(80, 80, 100))
+        console.print(box_x, box_y + box_height - 1, "+", fg=(80, 80, 100))
+        console.print(box_x + box_width - 1, box_y + box_height - 1, "+", fg=(80, 80, 100))
+
+        # Title
+        title = " PAUSED "
+        console.print((self.screen_width - len(title)) // 2, box_y, title, fg=(255, 200, 100))
+
+        # Menu options
+        options = ["Resume Game", "Save & Continue", "Quit to Desktop"]
+        option_y = box_y + 3
+
+        for i, option in enumerate(options):
+            y = option_y + i * 2
+            if i == self.pause_selection:
+                # Selected
+                console.print(box_x + 2, y, ">>", fg=(255, 255, 100))
+                console.print(box_x + 5, y, option, fg=(255, 255, 100))
+            else:
+                console.print(box_x + 5, y, option, fg=(140, 140, 150))
+
+        # Controls hint
+        hint = "[W/S] Select  [Enter] Confirm  [ESC] Resume"
+        console.print((self.screen_width - len(hint)) // 2, box_y + box_height + 1, hint, fg=(80, 80, 100))
