@@ -111,9 +111,9 @@ class Monster(Entity):
             # Adjacent to player - attack!
             self._attack_player(game)
         elif distance <= 8:
-            # Chase player - fast zombies get extra moves
+            # Chase player
             self._move_towards_player(game, dx, dy)
-            
+
             # Fast zombies move twice!
             if self.zombie_type == ZombieType.FAST and distance > 2:
                 dx = game.player.x - self.x
@@ -121,22 +121,29 @@ class Monster(Entity):
                 self._move_towards_player(game, dx, dy)
 
     def _attack_player(self, game: Game) -> None:
-        """Attack the player."""
-        from src.systems.combat import Combat
+        """Attack the player using enhanced combat system."""
+        from src.systems.combat import Combat, AttackResult
 
-        damage = Combat.calculate_damage(self, game.player)
-        game.player.hp -= damage
+        result, damage = Combat.perform_attack(self, game.player, game)
 
-        # === DAMAGE FLASH ===
-        game.player.is_flashing = True
-        game.effects.add_damage_flash(game.player.x, game.player.y)
+        # Get and display combat message
+        msg, color = Combat.get_attack_message(
+            self.name, game.player.name, result, damage, is_player_attacking=False
+        )
+        game.add_message(msg, color)
 
-        if damage > 0:
-            game.add_message(f"The {self.name} attacks you for {damage} damage!", (255, 100, 100))
-            # === BLOOD SPLATTER ===
-            game.effects.add_blood(game.player.x, game.player.y, amount=min(damage // 2 + 1, 2))
-        else:
-            game.add_message(f"The {self.name} attacks you but does no damage.", (200, 200, 200))
+        # Visual effects
+        if result != AttackResult.MISS:
+            game.player.is_flashing = True
+            game.effects.add_damage_flash(game.player.x, game.player.y)
+
+            if damage > 0:
+                blood_amount = 1
+                if result == AttackResult.CRITICAL:
+                    blood_amount = 3
+                elif damage >= 4:
+                    blood_amount = 2
+                game.effects.add_blood(game.player.x, game.player.y, amount=blood_amount)
 
     def _move_towards_player(self, game: Game, dx: int, dy: int) -> None:
         """Move one step towards the player."""

@@ -11,16 +11,25 @@ import tcod.console
 import tcod.event
 
 from src.entities.entity import Entity
-from src.entities.player import Player
+from src.entities.player import Player, PlayerStats
 from src.entities.monster import Monster, ZombieType
 from src.map.game_map import GameMap
 from src.map.procgen import generate_dungeon
 from src.engine.input_handler import handle_keys
-from src.systems.combat import Combat
+from src.systems.combat import Combat, AttackResult
 from src.graphics.effects import EffectsManager
+from src.items.item import Item, get_random_item, create_item
+from src.ui.inventory_screen import InventoryScreen
 
 if TYPE_CHECKING:
     from src.graphics.tileset_manager import TilesetManager
+
+
+class GameState:
+    """Game state enum."""
+    PLAYING = "playing"
+    INVENTORY = "inventory"
+    GAME_OVER = "game_over"
 
 
 class Game:
@@ -33,12 +42,16 @@ class Game:
         map_width: int,
         map_height: int,
         tileset_manager: TilesetManager | None = None,
+        player_name: str = "Survivor",
+        player_stats: PlayerStats | None = None,
     ) -> None:
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.map_width = map_width
         self.map_height = map_height
         self.tileset_manager = tileset_manager
+        self.player_name = player_name
+        self.player_stats = player_stats
 
         # UI dimensions
         self.ui_height = screen_height - map_height
@@ -49,6 +62,9 @@ class Game:
         # Entity list
         self.entities: list[Entity] = []
 
+        # Items on the ground
+        self.ground_items: dict[tuple[int, int], list[Item]] = {}
+
         # Generate the map and place player
         self.game_map, player_x, player_y = generate_dungeon(
             map_width=map_width,
@@ -58,22 +74,38 @@ class Game:
             room_max_size=10,
         )
 
-        # Create the player
-        self.player = Player(x=player_x, y=player_y, tileset_manager=tileset_manager)
+        # Create the player with custom stats
+        self.player = Player(
+            x=player_x,
+            y=player_y,
+            name=player_name,
+            stats=player_stats,
+            tileset_manager=tileset_manager,
+        )
         self.entities.append(self.player)
 
         # Spawn zombies with variety
         self._spawn_zombies()
 
+        # Spawn items in rooms
+        self._spawn_items()
+
         # Message log
         self.messages: list[tuple[str, tuple[int, int, int]]] = []
-        self.add_message("Welcome to Dead Horizon. Survive the apocalypse!", (255, 255, 100))
-        self.add_message("Use WASD or arrow keys to move. ESC to quit.", (200, 200, 200))
+        self.add_message(f"Welcome, {player_name}. Survive the apocalypse!", (255, 255, 100))
+        self.add_message("WASD/Arrows to move. I=Inventory, G=Pickup", (200, 200, 200))
+
+        # Kill counter
+        self.kills = 0
 
         # Game state
+        self.state = GameState.PLAYING
         self.game_over = False
 
-        # Initialize FOV
+        # Inventory screen (created when opened)
+        self.inventory_screen: InventoryScreen | None = None
+
+        # Initialize FOV with player's perception-based radius
         self.recompute_fov()
 
     def _spawn_zombies(self, count: int = 12) -> None:
@@ -81,15 +113,14 @@ class Game:
         rooms = getattr(self.game_map, 'rooms', [])
 
         # Spawn distribution: more basic zombies, fewer special types
-        # Weights for each type (zombie, fast, brute, crawler, skeleton)
         zombie_weights = [
-            (ZombieType.ZOMBIE, 40),    # 40% - Basic zombies
-            (ZombieType.FAST, 20),      # 20% - Fast zombies
-            (ZombieType.CRAWLER, 15),   # 15% - Crawlers
-            (ZombieType.SKELETON, 15),  # 15% - Skeletons
-            (ZombieType.BRUTE, 10),     # 10% - Brutes (rare, dangerous)
+            (ZombieType.ZOMBIE, 40),
+            (ZombieType.FAST, 20),
+            (ZombieType.CRAWLER, 15),
+            (ZombieType.SKELETON, 15),
+            (ZombieType.BRUTE, 10),
         ]
-        
+
         types = [t for t, _ in zombie_weights]
         weights = [w for _, w in zombie_weights]
 
@@ -102,13 +133,9 @@ class Game:
                 x = random.randint(1, self.map_width - 2)
                 y = random.randint(1, self.map_height - 2)
 
-            # Don't spawn on player or walls
             if (x, y) != (self.player.x, self.player.y) and self.game_map.walkable[x, y]:
-                # Don't spawn on other entities
                 if not any(e.x == x and e.y == y for e in self.entities):
-                    # Pick a random zombie type based on weights
                     zombie_type = random.choices(types, weights=weights, k=1)[0]
-                    
                     zombie = Monster.spawn_zombie(
                         x=x,
                         y=y,
@@ -117,31 +144,75 @@ class Game:
                     )
                     self.entities.append(zombie)
 
+    def _spawn_items(self) -> None:
+        """Spawn items in dungeon rooms."""
+        rooms = getattr(self.game_map, 'rooms', [])
+
+        # Skip the first room (player spawn)
+        for room in rooms[1:]:
+            # 60% chance to spawn 1-3 items in each room
+            if random.random() < 0.6:
+                num_items = random.randint(1, 3)
+                for _ in range(num_items):
+                    x = random.randint(room.x1 + 1, room.x2 - 1)
+                    y = random.randint(room.y1 + 1, room.y2 - 1)
+
+                    if self.game_map.walkable[x, y]:
+                        item = get_random_item()
+                        self._add_ground_item(x, y, item)
+
+    def _add_ground_item(self, x: int, y: int, item: Item) -> None:
+        """Add an item to the ground at position."""
+        key = (x, y)
+        if key not in self.ground_items:
+            self.ground_items[key] = []
+        self.ground_items[key].append(item)
+
+    def _get_ground_items(self, x: int, y: int) -> list[Item]:
+        """Get items on the ground at position."""
+        return self.ground_items.get((x, y), [])
+
+    def _remove_ground_item(self, x: int, y: int, item: Item) -> bool:
+        """Remove an item from the ground."""
+        key = (x, y)
+        if key in self.ground_items and item in self.ground_items[key]:
+            self.ground_items[key].remove(item)
+            if not self.ground_items[key]:
+                del self.ground_items[key]
+            return True
+        return False
+
     def add_message(self, text: str, color: tuple[int, int, int] = (255, 255, 255)) -> None:
         """Add a message to the log."""
         self.messages.append((text, color))
-        # Keep only the last 100 messages
         if len(self.messages) > 100:
             self.messages.pop(0)
 
     def recompute_fov(self) -> None:
-        """Recompute the field of view based on player position."""
-        self.game_map.compute_fov(self.player.x, self.player.y, radius=8)
+        """Recompute the field of view based on player position and perception."""
+        radius = getattr(self.player, 'fov_radius', 8)
+        self.game_map.compute_fov(self.player.x, self.player.y, radius=radius)
 
     def handle_event(self, event: tcod.event.Event) -> str | None:
         """Handle input events and return action if any."""
+        # Handle inventory state
+        if self.state == GameState.INVENTORY:
+            return self._handle_inventory_event(event)
+
+        # Handle game over state
         if self.game_over:
             if isinstance(event, tcod.event.KeyDown):
                 if event.sym == tcod.event.KeySym.ESCAPE:
                     return "quit"
                 elif event.sym == tcod.event.KeySym.r:
-                    # Restart game
                     self.__init__(
                         self.screen_width,
                         self.screen_height,
                         self.map_width,
                         self.map_height,
                         self.tileset_manager,
+                        self.player_name,
+                        self.player_stats,
                     )
             return None
 
@@ -154,14 +225,66 @@ class Game:
             return "quit"
 
         if action == "wait":
-            # Player waits, enemies take turn
+            self.add_message("You wait...", (150, 150, 150))
             self._process_enemy_turns()
             self.effects.tick()
             return None
 
+        if action == "inventory":
+            self.state = GameState.INVENTORY
+            self.inventory_screen = InventoryScreen(self.player)
+            return None
+
+        if action == "pickup":
+            return self._handle_pickup()
+
         if isinstance(action, tuple) and action[0] == "move":
             dx, dy = action[1], action[2]
             return self._handle_move(dx, dy)
+
+        return None
+
+    def _handle_inventory_event(self, event: tcod.event.Event) -> str | None:
+        """Handle events while inventory is open."""
+        if self.inventory_screen is None:
+            self.state = GameState.PLAYING
+            return None
+
+        should_close, result = self.inventory_screen.handle_input(event)
+
+        if should_close:
+            self.state = GameState.PLAYING
+            self.inventory_screen = None
+            return None
+
+        # Handle special results
+        if result and result.startswith("DROP:"):
+            item_name = result[5:]
+            # Create a copy of the dropped item to place on ground
+            for item_id, item_def in __import__('src.items.item', fromlist=['ITEMS']).ITEMS.items():
+                if item_def.name == item_name:
+                    dropped_item = create_item(item_id)
+                    self._add_ground_item(self.player.x, self.player.y, dropped_item)
+                    self.add_message(f"Dropped {item_name}.", (200, 200, 100))
+                    break
+
+        return None
+
+    def _handle_pickup(self) -> str | None:
+        """Handle picking up items."""
+        items = self._get_ground_items(self.player.x, self.player.y)
+
+        if not items:
+            self.add_message("Nothing here to pick up.", (150, 150, 150))
+            return None
+
+        # Pick up the first item
+        item = items[0]
+        if self.player.add_to_inventory(item):
+            self._remove_ground_item(self.player.x, self.player.y, item)
+            self.add_message(f"Picked up {item.get_display_name()}.", (100, 255, 100))
+        else:
+            self.add_message("Inventory full!", (255, 100, 100))
 
         return None
 
@@ -170,52 +293,68 @@ class Game:
         dest_x = self.player.x + dx
         dest_y = self.player.y + dy
 
-        # Clear flash states from previous turn
         self.player.is_flashing = False
         for entity in self.entities:
             entity.is_flashing = False
 
-        # Check for collision with entities (attack)
         target = self._get_blocking_entity_at(dest_x, dest_y)
         if target:
-            # Attack!
-            damage = Combat.calculate_damage(self.player, target)
-            target.hp -= damage
+            result, damage = Combat.perform_attack(self.player, target, self)
 
-            # === DAMAGE FLASH ===
-            target.is_flashing = True
-            self.effects.add_damage_flash(target.x, target.y)
+            msg, color = Combat.get_attack_message(
+                self.player.name, target.name, result, damage, is_player_attacking=True
+            )
+            self.add_message(msg, color)
 
-            if damage > 0:
-                self.add_message(f"You hit the {target.name} for {damage} damage!", (255, 200, 100))
-                # === BLOOD SPLATTER ===
-                self.effects.add_blood(target.x, target.y, amount=min(damage // 2 + 1, 3))
-            else:
-                self.add_message(f"You hit the {target.name} but do no damage.", (200, 200, 200))
+            if result != AttackResult.MISS:
+                target.is_flashing = True
+                self.effects.add_damage_flash(target.x, target.y)
+
+                if damage > 0:
+                    blood_amount = 1
+                    if result == AttackResult.CRITICAL:
+                        blood_amount = 4
+                    elif damage >= 5:
+                        blood_amount = 3
+                    elif damage >= 3:
+                        blood_amount = 2
+                    self.effects.add_blood(target.x, target.y, amount=blood_amount)
 
             if target.hp <= 0:
-                self.add_message(f"The {target.name} is dead!", (255, 100, 100))
-                # === DEATH BLOOD ===
+                self.kills += 1
+                # XP based on enemy type
+                xp_gained = 10 + getattr(target, 'max_hp', 10)
+                if self.player.gain_xp(xp_gained):
+                    self.add_message(f"LEVEL UP! You are now level {self.player.level}!", (255, 255, 100))
+                self.add_message(f"The {target.name} is dead! (+{xp_gained} XP)", (255, 100, 100))
                 self.effects.add_death_blood(target.x, target.y)
                 self.entities.remove(target)
 
-            # Enemy turn
+                # Chance to drop item on death
+                if random.random() < 0.3:
+                    drop = get_random_item()
+                    self._add_ground_item(target.x, target.y, drop)
+                    self.add_message(f"The {target.name} dropped {drop.name}!", (200, 200, 100))
+
             self._process_enemy_turns()
             self.effects.tick()
             return None
 
-        # Check for collision with walls
         if not self.game_map.walkable[dest_x, dest_y]:
             return None
 
-        # Move the player
         self.player.x = dest_x
         self.player.y = dest_y
-
-        # Recompute FOV
         self.recompute_fov()
 
-        # Enemy turn
+        # Notify if there are items here
+        items = self._get_ground_items(dest_x, dest_y)
+        if items:
+            if len(items) == 1:
+                self.add_message(f"You see {items[0].get_display_name()} here. (G to pick up)", (100, 200, 255))
+            else:
+                self.add_message(f"You see {len(items)} items here. (G to pick up)", (100, 200, 255))
+
         self._process_enemy_turns()
         self.effects.tick()
 
@@ -234,64 +373,90 @@ class Game:
             if entity != self.player and hasattr(entity, 'take_turn'):
                 entity.take_turn(self)
 
-        # Check if player is dead
         if self.player.hp <= 0:
             self.game_over = True
-            self.add_message("YOU DIED! Press R to restart or ESC to quit.", (255, 0, 0))
+            self.add_message(f"YOU DIED! Kills: {self.kills}. Press R to restart.", (255, 0, 0))
 
     def render(self, console: tcod.console.Console) -> None:
         """Render the game to the console."""
-        # Render the map (always uses tiles mode now)
+        # If inventory is open, render that instead
+        if self.state == GameState.INVENTORY and self.inventory_screen:
+            self.inventory_screen.render(console)
+            return
+
         self.game_map.render(console, self.tileset_manager)
 
-        # Render blood splatter on floor (before entities)
+        # Render blood effects
         for effect in self.effects.effects:
             if hasattr(effect, 'permanent') and effect.permanent:
                 if self.game_map.visible[effect.x, effect.y]:
                     if self.game_map.walkable[effect.x, effect.y]:
                         console.print(effect.x, effect.y, effect.char, fg=effect.color)
 
-        # Render entities (in order: items, monsters, player)
+        # Render ground items
+        for (x, y), items in self.ground_items.items():
+            if self.game_map.visible[x, y] and items:
+                # Show the top item
+                item = items[0]
+                console.print(x, y, item.char, fg=item.color)
+
+        # Render entities
         entities_sorted = sorted(self.entities, key=lambda e: e.render_order)
         for entity in entities_sorted:
             if self.game_map.visible[entity.x, entity.y]:
-                # Get render character (always tile mode)
                 render_char = entity.get_render_char(self.tileset_manager)
-                # Use flash color if flashing, otherwise normal color
                 render_color = entity.get_render_color()
                 console.print(entity.x, entity.y, render_char, fg=render_color)
 
-        # Render UI panel
         self._render_ui(console)
 
     def _render_ui(self, console: tcod.console.Console) -> None:
         """Render the UI panel at the bottom."""
         ui_y = self.map_height
 
-        # Draw separator line
         console.draw_rect(0, ui_y, self.screen_width, 1, ord("-"), fg=(100, 100, 100))
 
-        # Draw HP bar
-        hp_text = f"HP: {self.player.hp}/{self.player.max_hp}"
-        console.print(1, ui_y + 1, hp_text, fg=(255, 100, 100))
+        # Player name and level
+        name_text = f"{self.player.name} Lv.{self.player.level}"
+        console.print(1, ui_y + 1, name_text, fg=(255, 255, 255))
 
-        # Draw HP bar visual
+        # HP bar
+        hp_text = f"HP: {self.player.hp}/{self.player.max_hp}"
+        console.print(1, ui_y + 2, hp_text, fg=(255, 100, 100))
+
         bar_width = 20
         filled = int((self.player.hp / self.player.max_hp) * bar_width)
-        console.draw_rect(1, ui_y + 2, bar_width, 1, ord("#"), fg=(100, 50, 50))
+        console.draw_rect(1, ui_y + 3, bar_width, 1, ord("#"), fg=(100, 50, 50))
         if filled > 0:
-            console.draw_rect(1, ui_y + 2, filled, 1, ord("#"), fg=(255, 50, 50))
+            console.draw_rect(1, ui_y + 3, filled, 1, ord("#"), fg=(255, 50, 50))
 
-        # Draw zombie count
+        # XP bar
+        xp_text = f"XP: {self.player.xp}/{self.player.xp_to_next_level}"
+        console.print(25, ui_y + 1, xp_text, fg=(100, 200, 255))
+        xp_filled = int((self.player.xp / self.player.xp_to_next_level) * 15)
+        console.draw_rect(25, ui_y + 2, 15, 1, ord("-"), fg=(30, 60, 80))
+        if xp_filled > 0:
+            console.draw_rect(25, ui_y + 2, xp_filled, 1, ord("="), fg=(100, 200, 255))
+
+        # Stats - show total stats from equipment
+        console.print(45, ui_y + 1, f"ATK:{self.player.get_total_attack()}", fg=(255, 180, 100))
+        console.print(55, ui_y + 1, f"DEF:{self.player.get_total_defense()}", fg=(100, 180, 255))
+        console.print(45, ui_y + 2, f"CRIT:{self.player.get_total_crit_bonus() + 10}%", fg=(255, 255, 100))
+        console.print(55, ui_y + 2, f"Kills:{self.kills}", fg=(255, 100, 100))
+
+        # Enemy count
         zombie_count = len([e for e in self.entities if isinstance(e, Monster)])
-        console.print(25, ui_y + 1, f"Enemies: {zombie_count}", fg=(100, 200, 100))
+        console.print(68, ui_y + 1, f"Enemies:{zombie_count}", fg=(100, 200, 100))
 
-        # Draw messages (last 4)
+        # Inventory count
+        inv_count = len(self.player.inventory)
+        console.print(68, ui_y + 2, f"Items:{inv_count}/{self.player.max_inventory_size}", fg=(200, 200, 100))
+
+        # Messages (last 3)
         msg_y = ui_y + 4
-        for i, (text, color) in enumerate(self.messages[-4:]):
-            console.print(1, msg_y + i, text, fg=color)
+        for i, (text, color) in enumerate(self.messages[-3:]):
+            console.print(1, msg_y + i, text[:self.screen_width - 2], fg=color)
 
-        # Draw game over message if applicable
         if self.game_over:
             console.print(
                 self.screen_width // 2 - 10,
