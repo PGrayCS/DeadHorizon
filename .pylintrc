@@ -1,0 +1,66 @@
+[MAIN]
+# Minimum Python version to use for version dependent checks
+py-version = 3.8
+
+# Files or directories to be skipped
+ignore = venv,__pycache__,.git
+
+# Add paths to enable imports
+init-hook='import sys; sys.path.insert(0, ".")'
+
+[MESSAGES CONTROL]
+# Disable messages that don't apply to this project
+disable =
+    # False positives with tcod.event.KeySym dynamic members
+    no-member,
+    # Game classes naturally have many attributes
+    too-many-instance-attributes,
+    too-many-arguments,
+    too-many-positional-arguments,
+    too-many-return-statements,
+    too-many-branches,
+    too-many-public-methods,
+    too-few-public-methods,
+    too-many-locals,
+    # Import structure for circular dependency avoidance
+    import-outside-toplevel,
+    cyclic-import,
+    # Protected access is intentional for game engine internals
+    protected-access,
+    # Allow calling __init__ directly for re-initialization
+    unnecessary-dunder-call,
+    # Style preferences
+    no-else-return,
+    missing-module-docstring,
+    missing-class-docstring,
+    missing-function-docstring,
+    trailing-whitespace,
+    trailing-newlines,
+    line-too-long,
+    # Line ending differences between Windows/Linux
+    mixed-line-endings,
+    # Unused imports handled by IDE
+    unused-import,
+    # Broad exception catching is intentional for robustness
+    broad-exception-caught,
+    # Code duplication is acceptable for UI helper functions
+    duplicate-code,
+    # Chained comparisons are fine but not required
+    chained-comparison,
+
+[FORMAT]
+# Maximum number of characters on a single line
+max-line-length = 120
+
+[DESIGN]
+# Maximum number of arguments for function / method
+max-args = 10
+
+# Maximum number of attributes for a class
+max-attributes = 20
+
+# Maximum number of return statements
+max-returns = 10
+
+# Maximum number of branch for function / method body
+max-branches = 15
