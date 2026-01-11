@@ -357,6 +357,13 @@ class Game:
         for entity in self.entities:
             entity.is_flashing = False
 
+        if self.game_map.open_door(dest_x, dest_y):
+            self.add_message("You open the door.", (200, 200, 150))
+            self.recompute_fov()
+            self._process_enemy_turns()
+            self.effects.tick()
+            return None
+
         target = self._get_blocking_entity_at(dest_x, dest_y)
         if target:
             result, damage = Combat.perform_attack(self.player, target, self)
