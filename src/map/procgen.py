@@ -5,6 +5,7 @@ Procedural map generation
 from __future__ import annotations
 
 import random
+import numpy as np
 from typing import Iterator
 
 import tcod
@@ -111,7 +112,33 @@ def generate_dungeon(
     # Store rooms for spawning
     game_map.rooms = rooms
 
+    _place_doors(game_map, rooms)
+
     # Player starts in the first room
     player_x, player_y = rooms[0].center
 
     return game_map, player_x, player_y
+
+
+def _place_doors(game_map: GameMap, rooms: list[RectangularRoom]) -> None:
+    """Place closed doors at room entrances leading to corridors."""
+
+    def is_wall(x: int, y: int) -> bool:
+        return np.array_equal(game_map.tiles[x, y], tile_types.wall)
+
+    def is_floor(x: int, y: int) -> bool:
+        return np.array_equal(game_map.tiles[x, y], tile_types.floor)
+
+    def try_place_door(x: int, y: int, inside: tuple[int, int], outside: tuple[int, int]) -> None:
+        if not game_map.in_bounds(*outside):
+            return
+        if is_wall(x, y) and is_floor(*inside) and is_floor(*outside):
+            game_map.tiles[x, y] = tile_types.door_closed
+
+    for room in rooms:
+        for x in range(room.x1 + 1, room.x2 - 1):
+            try_place_door(x, room.y1, (x, room.y1 + 1), (x, room.y1 - 1))
+            try_place_door(x, room.y2 - 1, (x, room.y2 - 2), (x, room.y2))
+        for y in range(room.y1 + 1, room.y2 - 1):
+            try_place_door(room.x1, y, (room.x1 + 1, y), (room.x1 - 1, y))
+            try_place_door(room.x2 - 1, y, (room.x2 - 2, y), (room.x2, y))
