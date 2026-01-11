@@ -20,6 +20,7 @@ from src.systems.combat import Combat, AttackResult
 from src.graphics.effects import EffectsManager
 from src.items.item import Item, get_random_item, create_item
 from src.ui.inventory_screen import InventoryScreen
+from src.ui.pickup_screen import PickupScreen
 
 if TYPE_CHECKING:
     from src.graphics.tileset_manager import TilesetManager
@@ -29,6 +30,7 @@ class GameState:
     """Game state enum."""
     PLAYING = "playing"
     INVENTORY = "inventory"
+    PICKUP = "pickup"
     PAUSED = "paused"
     GAME_OVER = "game_over"
 
@@ -94,7 +96,7 @@ class Game:
         # Message log
         self.messages: list[tuple[str, tuple[int, int, int]]] = []
         self.add_message(f"Welcome, {player_name}. Survive the apocalypse!", (255, 255, 100))
-        self.add_message("WASD/Arrows to move. I=Inventory, G=Pickup", (200, 200, 200))
+        self.add_message("WASD/Arrows to move. I=Inventory, G=Pickup (Space to multi-select).", (200, 200, 200))
 
         # Kill counter
         self.kills = 0
@@ -106,6 +108,7 @@ class Game:
 
         # Inventory screen (created when opened)
         self.inventory_screen: InventoryScreen | None = None
+        self.pickup_screen: PickupScreen | None = None
 
         # Initialize FOV with player's perception-based radius
         self.recompute_fov()
@@ -201,6 +204,10 @@ class Game:
         if self.state == GameState.INVENTORY:
             return self._handle_inventory_event(event)
 
+        # Handle pickup state
+        if self.state == GameState.PICKUP:
+            return self._handle_pickup_event(event)
+
         # Handle paused state
         if self.state == GameState.PAUSED:
             return self._handle_pause_event(event)
@@ -287,6 +294,34 @@ class Game:
 
         return None
 
+    def _handle_pickup_event(self, event: tcod.event.Event) -> str | None:
+        """Handle events while pickup menu is open."""
+        if self.pickup_screen is None:
+            self.state = GameState.PLAYING
+            return None
+
+        should_close, items_to_pick = self.pickup_screen.handle_input(event)
+
+        if should_close:
+            self.state = GameState.PLAYING
+            self.pickup_screen = None
+
+        if not items_to_pick:
+            return None
+
+        inventory_full = False
+        for item in items_to_pick:
+            if self.player.add_to_inventory(item):
+                self._remove_ground_item(self.player.x, self.player.y, item)
+                self.add_message(f"Picked up {item.get_display_name()}.", (100, 255, 100))
+            else:
+                inventory_full = True
+
+        if inventory_full:
+            self.add_message("Inventory full!", (255, 100, 100))
+
+        return None
+
     def _handle_pause_event(self, event: tcod.event.Event) -> str | None:
         """Handle events while pause menu is open."""
         if not isinstance(event, tcod.event.KeyDown):
@@ -319,6 +354,11 @@ class Game:
 
         if not items:
             self.add_message("Nothing here to pick up.", (150, 150, 150))
+            return None
+
+        if len(items) > 1:
+            self.state = GameState.PICKUP
+            self.pickup_screen = PickupScreen(items)
             return None
 
         # Pick up the first item
@@ -413,7 +453,10 @@ class Game:
             if len(items) == 1:
                 self.add_message(f"You see {items[0].get_display_name()} here. (G to pick up)", (100, 200, 255))
             else:
-                self.add_message(f"You see {len(items)} items here. (G to pick up)", (100, 200, 255))
+                self.add_message(
+                    f"You see {len(items)} items here. (G to pick up, Space to multi-select)",
+                    (100, 200, 255),
+                )
 
         self._process_enemy_turns()
         self.effects.tick()
@@ -442,6 +485,10 @@ class Game:
         # If inventory is open, render that instead
         if self.state == GameState.INVENTORY and self.inventory_screen:
             self.inventory_screen.render(console)
+            return
+
+        if self.state == GameState.PICKUP and self.pickup_screen:
+            self.pickup_screen.render(console)
             return
 
         # If paused, render pause menu overlay
