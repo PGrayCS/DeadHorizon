@@ -213,6 +213,7 @@ def save_game(game: "Game", slot: int = 0) -> bool:
             "ground_items": serialize_ground_items(game.ground_items),
             "map": serialize_map(game.game_map),
             "kills": game.kills,
+            "turns": game.turns,
             "messages": game.messages[-20:],  # Keep last 20 messages
             "dungeon_level": getattr(game, "dungeon_level", 1),
         }
@@ -338,6 +339,7 @@ def load_game(game: "Game", slot: int = 0) -> bool:  # pylint: disable=too-many-
 
         # Restore game state
         game.kills = data.get("kills", 0)
+        game.turns = data.get("turns", 0)
         game.messages = data.get("messages", [])
         game.dungeon_level = data.get("dungeon_level", 1)
 

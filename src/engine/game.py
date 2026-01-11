@@ -17,6 +17,7 @@ from src.map.game_map import GameMap
 from src.map.procgen import generate_dungeon
 from src.engine.input_handler import handle_keys
 from src.systems.combat import Combat, AttackResult
+from src.systems.survival import Survival
 from src.graphics.effects import EffectsManager
 from src.items.item import Item, get_random_item, create_item
 from src.ui.inventory_screen import InventoryScreen
@@ -98,6 +99,7 @@ class Game:
 
         # Kill counter
         self.kills = 0
+        self.turns = 0
 
         # Game state
         self.state = GameState.PLAYING
@@ -109,6 +111,12 @@ class Game:
 
         # Initialize FOV with player's perception-based radius
         self.recompute_fov()
+
+    def _advance_turn(self) -> None:
+        """Advance the turn counter and process survival systems."""
+        self.turns += 1
+        for message in Survival.tick(self.player, self.turns):
+            self.add_message(message)
 
     def _spawn_zombies(self, count: int = 12) -> None:
         """Spawn a variety of zombie types in random room positions."""
@@ -234,6 +242,7 @@ class Game:
             self.add_message("You wait...", (150, 150, 150))
             self._process_enemy_turns()
             self.effects.tick()
+            self._advance_turn()
             return None
 
         if action == "inventory":
@@ -319,6 +328,9 @@ class Game:
 
         if not items:
             self.add_message("Nothing here to pick up.", (150, 150, 150))
+            self._process_enemy_turns()
+            self.effects.tick()
+            self._advance_turn()
             return None
 
         # Pick up the first item
@@ -329,6 +341,9 @@ class Game:
         else:
             self.add_message("Inventory full!", (255, 100, 100))
 
+        self._process_enemy_turns()
+        self.effects.tick()
+        self._advance_turn()
         return None
 
     def _handle_save(self) -> None:
@@ -398,6 +413,7 @@ class Game:
 
             self._process_enemy_turns()
             self.effects.tick()
+            self._advance_turn()
             return None
 
         if not self.game_map.walkable[dest_x, dest_y]:
@@ -417,6 +433,7 @@ class Game:
 
         self._process_enemy_turns()
         self.effects.tick()
+        self._advance_turn()
 
         return None
 
@@ -502,6 +519,20 @@ class Game:
         console.draw_rect(25, ui_y + 2, 15, 1, ord("-"), fg=(30, 60, 80))
         if xp_filled > 0:
             console.draw_rect(25, ui_y + 2, xp_filled, 1, ord("="), fg=(100, 200, 255))
+
+        # Hunger/Thirst bars
+        hunger_text = f"HUN: {self.player.hunger}/100"
+        thirst_text = f"THR: {self.player.thirst}/100"
+        console.print(25, ui_y + 3, hunger_text, fg=(200, 180, 100))
+        console.print(50, ui_y + 3, thirst_text, fg=(100, 180, 200))
+        hunger_filled = int((self.player.hunger / 100) * 8)
+        thirst_filled = int((self.player.thirst / 100) * 8)
+        console.draw_rect(40, ui_y + 3, 8, 1, ord("-"), fg=(80, 70, 40))
+        console.draw_rect(65, ui_y + 3, 8, 1, ord("-"), fg=(40, 70, 80))
+        if hunger_filled > 0:
+            console.draw_rect(40, ui_y + 3, hunger_filled, 1, ord("="), fg=(200, 180, 100))
+        if thirst_filled > 0:
+            console.draw_rect(65, ui_y + 3, thirst_filled, 1, ord("="), fg=(100, 180, 200))
 
         # Stats - show total stats from equipment
         console.print(45, ui_y + 1, f"ATK:{self.player.get_total_attack()}", fg=(255, 180, 100))
