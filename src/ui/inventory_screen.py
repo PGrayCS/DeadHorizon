@@ -110,6 +110,8 @@ class InventoryScreen:
 
         stats = [
             (f"HP: {self.player.hp}/{self.player.max_hp}", (255, 100, 100)),
+            (f"HUN: {self.player.hunger}/100", (200, 180, 100)),
+            (f"THR: {self.player.thirst}/100", (100, 180, 200)),
             (f"ATK: {self.player.get_total_attack()}", (255, 150, 100)),
             (f"DEF: {self.player.get_total_defense()}", (100, 150, 255)),
             (f"ACC: +{self.player.get_total_accuracy()}%", (200, 200, 100)),
